@@ -95,6 +95,21 @@ module "eks" {
   }
 }
 
+data "aws_eks_cluster_auth" "auth" {
+  name = module.eks.cluster_name
+}
+
+provider "kubernetes" {
+  host                   = module.eks.cluster_endpoint
+  token                  = data.aws_eks_cluster_auth.auth.token
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+}
+
+resource "kubernetes_namespace" "ecommerce" {
+  metadata {
+    name = "ecommerce"
+  }
+}
 
 # https://aws.amazon.com/blogs/containers/amazon-ebs-csi-driver-is-now-generally-available-in-amazon-eks-add-ons/ 
 data "aws_iam_policy" "ebs_csi_policy" {
