@@ -30,9 +30,9 @@ terraform {
       version = "~> 2.3.4"
     }
 
-    # kubectl = {
-    #   source  = "gavinbunney/kubectl"
-    # }
+    kubectl = {
+      source  = "gavinbunney/kubectl"
+    }
   }
 
   required_version = "~> 1.3"
