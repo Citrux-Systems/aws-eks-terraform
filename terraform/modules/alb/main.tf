@@ -1,97 +1,14 @@
-provider "aws" {
-  region = var.region
-}
-
-# terraform/vpc.tf
-
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "3.14.3"
-
-  name = "citrux-demo-eks-vpc"
-  cidr = "10.0.0.0/16"
-
-  azs             = ["us-west-2a", "us-west-2b"]
-  private_subnets = ["10.0.0.0/19", "10.0.32.0/19"]
-  public_subnets  = ["10.0.64.0/19", "10.0.96.0/19"]
-
-  enable_nat_gateway     = true
-  single_nat_gateway     = true
-  one_nat_gateway_per_az = false
-
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Environment = "Dev"
-  }
-
-  public_subnet_tags = {
-    "kubernetes.io/role/elb" = "1"
-  }
-  private_subnet_tags = {
-    "kubernetes.io/role/internal-elb" = "1"
-  }
-
-}
-
-# terraform/eks.tf
-
-module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "18.29.0"
-
-  cluster_name    = "citrux-demo-eks-cluster"
-  cluster_version = "1.30"
-
-  cluster_endpoint_private_access = true
-  cluster_endpoint_public_access  = true
-
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
-
-  enable_irsa = true
-
-  eks_managed_node_group_defaults = {
-    disk_size = 50
-  }
-
-  eks_managed_node_groups = {
-    nodes = {
-      min_size     = 1
-      max_size     = 1
-      desired_size = 1
-
-      instance_types = ["t3.small"]
-    }
-  }
-
-  tags = {
-    Environment = "testing"
-  }
-
-  node_security_group_additional_rules = {
-    ingress_allow_access_from_control_plane = {
-      type                          = "ingress"
-      protocol                      = "tcp"
-      from_port                     = 9443
-      to_port                       = 9443
-      source_cluster_security_group = true
-      description                   = "Allow access from control plane to webhook port of AWS load balancer controller"
-    }
-  }
-}
 
 # Stage 2: Deploying the Cluster Autoscaler and AWS Load Balancer Controller
 # terraform/eks.tf
 
 provider "kubernetes" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  host                   = var.eks_cluster_endpoint
+  cluster_ca_certificate = base64decode(var.eks_cluster_certificate_authority)
 
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
-    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
+    args        = ["eks", "get-token", "--cluster-name", var.eks_cluster_name]
     command     = "aws"
   }
   
@@ -105,11 +22,11 @@ module "cluster_autoscaler_irsa_role" {
 
   role_name                        = "cluster-autoscaler"
   attach_cluster_autoscaler_policy = true
-  cluster_autoscaler_cluster_ids   = [module.eks.cluster_name]
+  cluster_autoscaler_cluster_ids   = [var.eks_cluster_name]
 
   oidc_providers = {
     ex = {
-      provider_arn               = module.eks.oidc_provider_arn
+      provider_arn               = var.eks_oidc_provider_arn
       namespace_service_accounts = ["kube-system:cluster-autoscaler"]
     }
   }
@@ -118,13 +35,13 @@ module "cluster_autoscaler_irsa_role" {
 # terraform/autoscaler-manifest.tf
 
 provider "kubectl" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  host                   = var.eks_cluster_endpoint
+  cluster_ca_certificate = base64decode(var.eks_cluster_certificate_authority)
   load_config_file       = false
 
   exec {
     api_version = "client.authentication.k8s.io/v1beta1"
-    args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name]
+    args        = ["eks", "get-token", "--cluster-name", var.eks_cluster_name]
     command     = "aws"
   }
 }
@@ -308,7 +225,7 @@ spec:
             - --cloud-provider=aws
             - --skip-nodes-with-local-storage=false
             - --expander=least-waste
-            - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/${module.eks.cluster_id}
+            - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/${var.eks_cluster_name}
           volumeMounts:
             - name: ssl-certs
               mountPath: /etc/ssl/certs/ca-certificates.crt
@@ -325,10 +242,10 @@ EOF
 provider "helm" {
   kubernetes {
     host                   = data.aws_eks_cluster.default.endpoint
-    cluster_ca_certificate = base64decode(data.aws_eks_cluster.default.certificate_authority[0].data)
+    cluster_ca_certificate = base64decode(var.eks_cluster_certificate_authority)
     exec {
       api_version = "client.authentication.k8s.io/v1beta1"
-      args        = ["eks", "get-token", "--cluster-name", data.aws_eks_cluster.default.id]
+      args        = ["eks", "get-token", "--cluster-name", var.eks_cluster_name]
       command     = "aws"
     }
   }
@@ -346,7 +263,7 @@ module "aws_load_balancer_controller_irsa_role" {
 
   oidc_providers = {
     ex = {
-      provider_arn               = module.eks.oidc_provider_arn
+      provider_arn               = var.eks_oidc_provider_arn
       namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
     }
   }
@@ -369,7 +286,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "clusterName"
-    value = module.eks.cluster_name
+    value = var.eks_cluster_name
   }
 
   set {
