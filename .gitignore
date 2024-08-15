@@ -7,5 +7,5 @@
 *.lock.hcl
 *node_modules
 .terraform
-terraform.plan
+.terraform.plan
 .terraform.lock.hcl
