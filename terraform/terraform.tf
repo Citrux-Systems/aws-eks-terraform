@@ -1,25 +1,27 @@
-# Copyright (c) HashiCorp, Inc.
-# SPDX-License-Identifier: MPL-2.0
-
 terraform {
-
-  # cloud {
-  #   workspaces {
-  #     name = "learn-terraform-eks"
-  #   }
-  # }
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.47.0"
     }
-
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.10"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = ">= 2.4.1"
+    }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6.1"
     }
-
+    nullres = {
+      source  = "hashicorp/null"
+      version = ">= 3.1"
+    }
+    # TODO: cut bellow
     tls = {
       source  = "hashicorp/tls"
       version = "~> 4.0.5"
