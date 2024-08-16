@@ -13,20 +13,14 @@ terraform {
       source  = "hashicorp/null"
       version = ">= 3.1"
     }
-    # # TODO: cut bellow
-    # tls = {
-    #   source  = "hashicorp/tls"
-    #   version = "~> 4.0.5"
-    # }
-
-    # cloudinit = {
-    #   source  = "hashicorp/cloudinit"
-    #   version = "~> 2.3.4"
-    # }
-
-    # kubectl = {
-    #   source  = "gavinbunney/kubectl"
-    # }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">= 2.20"
+    }
+    helm = {
+      source  = "hashicorp/helm"
+      version = ">= 2.9"
+    }
   }
 }
 
