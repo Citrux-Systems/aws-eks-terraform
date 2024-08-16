@@ -50,16 +50,32 @@ module "eks" {
 }
 
 module "eks_blueprints_addons" {
-  source = "github.com/aws-ia/terraform-aws-eks-blueprints//modules/kubernetes-addons?ref=v4.32.1"
+  source = "aws-ia/eks-blueprints-addons/aws"
+  version = "1.16.3"
 
-  eks_cluster_id        = module.eks.cluster_name
-  eks_cluster_endpoint  = module.eks.cluster_endpoint
-  eks_cluster_version   = module.eks.cluster_version
-  eks_oidc_provider     = module.eks.oidc_provider
-  eks_oidc_provider_arn = module.eks.oidc_provider_arn
+  cluster_name        = module.eks.cluster_name
+  cluster_endpoint  = module.eks.cluster_endpoint
+  cluster_version   = module.eks.cluster_version
+  oidc_provider_arn = module.eks.oidc_provider_arn
 
   # K8S Add-ons
   enable_aws_load_balancer_controller = true
+  aws_load_balancer_controller = {
+    set = [
+      {
+        name  = "vpcId"
+        value = var.vpc_id
+      },
+      {
+        name  = "podDisruptionBudget.maxUnavailable"
+        value = 1
+      },
+      {
+        name  = "enableServiceMutatorWebhook"
+        value = "false"
+      }
+    ]
+  }
   enable_metrics_server               = true
   enable_aws_cloudwatch_metrics       = false
 
